@@ -36,7 +36,9 @@ services:
       retries: 10
 
   catalog-service:
-    build: ./catalog-service
+    build:
+      context: .
+      dockerfile: catalog-service/Dockerfile
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://postgres:postgres@catalog-db:5432/catalog_db
@@ -48,7 +50,9 @@ services:
         condition: service_healthy
 
   orders-service:
-    build: ./orders-service
+    build:
+      context: .
+      dockerfile: orders-service/Dockerfile
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://postgres:postgres@orders-db:5432/orders_db

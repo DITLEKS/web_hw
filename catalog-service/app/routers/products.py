@@ -19,7 +19,9 @@ from app.schemas import (
 )
 from shared.utils import record_to_dict
 
+
 router = APIRouter()
+
 
 ALLOWED_PATCH_FIELDS = [
     "name", "description", "price", "old_price",
@@ -43,17 +45,34 @@ ALLOWED_PATCH_FIELDS = [
             "model": ErrorResponse,
             "content": {
                 "application/json": {
-                    "example": {"error": "invalid_params", "message": "Допустимые значения status: active, archived, out_of_stock"}
+                    "example": {
+                        "error": "invalid_params",
+                        "message": "Допустимые значения status: active, archived, out_of_stock",
+                    }
                 }
             },
         },
     },
 )
 async def list_products(
-    category: Optional[str] = Query(None, description="Slug категории. Значения: `led`, `filament`, `smart`, `halogen`", example="led"),
-    status: Optional[ProductStatus] = Query(None, description="Статус товара. Без этого параметра архивные товары не показываются", example=ProductStatus.active),
+    category: Optional[str] = Query(
+        None,
+        description="Slug категории. Значения: `led`, `filament`, `smart`, `halogen`",
+        example="led",
+    ),
+    status: Optional[ProductStatus] = Query(
+        None,
+        description="Статус товара. Без этого параметра архивные товары не показываются",
+        example=ProductStatus.active,
+    ),
     page: int = Query(1, ge=1, description="Номер страницы (начиная с 1)", example=1),
-    limit: int = Query(12, ge=1, le=100, description="Количество товаров на странице (от 1 до 100)", example=12),
+    limit: int = Query(
+        12,
+        ge=1,
+        le=100,
+        description="Количество товаров на странице (от 1 до 100)",
+        example=12,
+    ),
     pool: asyncpg.Pool = Depends(get_pool),
 ):
     conditions: list[str] = []
@@ -82,7 +101,13 @@ async def list_products(
     rows = await pool.fetch(
         f"""
         SELECT p.id, p.sku,
-               json_build_object('id', c.id, 'slug', c.slug, 'name', c.name) AS category,
+               json_build_object(
+                   'id', c.id,
+                   'slug', c.slug,
+                   'name', c.name,
+                   'color_hex', c.color_hex,
+                   'sort_order', c.sort_order
+               ) AS category,
                p.name, p.price, p.old_price, p.stock_quantity, p.status,
                (SELECT url FROM product_images
                 WHERE product_id = p.id AND is_primary = TRUE LIMIT 1) AS primary_image
@@ -98,9 +123,9 @@ async def list_products(
     return {
         "data": [record_to_dict(r) for r in rows],
         "meta": {
-            "page":        page,
-            "limit":       limit,
-            "total":       total,
+            "page": page,
+            "limit": limit,
+            "total": total,
             "total_pages": -(-total // limit),
         },
     }
@@ -116,7 +141,14 @@ async def list_products(
         404: {
             "description": "Товар с таким SKU не существует",
             "model": ErrorResponse,
-            "content": {"application/json": {"example": {"error": "product_not_found", "message": "Товар с указанным SKU не найден"}}},
+            "content": {
+                "application/json": {
+                    "example": {
+                        "error": "product_not_found",
+                        "message": "Товар с указанным SKU не найден",
+                    }
+                }
+            },
         },
     },
 )
@@ -124,7 +156,13 @@ async def get_product(sku: str, pool: asyncpg.Pool = Depends(get_pool)):
     row = await pool.fetchrow(
         """
         SELECT p.id, p.sku,
-               json_build_object('id', c.id, 'slug', c.slug, 'name', c.name) AS category,
+               json_build_object(
+                   'id', c.id,
+                   'slug', c.slug,
+                   'name', c.name,
+                   'color_hex', c.color_hex,
+                   'sort_order', c.sort_order
+               ) AS category,
                p.name, p.description, p.price, p.old_price,
                p.stock_quantity, p.status, p.created_at, p.updated_at
         FROM products p
@@ -134,18 +172,30 @@ async def get_product(sku: str, pool: asyncpg.Pool = Depends(get_pool)):
         sku,
     )
     if not row:
-        raise HTTPException(status_code=404, detail={"error": "product_not_found", "message": "Товар с указанным SKU не найден"})
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": "product_not_found",
+                "message": "Товар с указанным SKU не найден",
+            },
+        )
 
     product = record_to_dict(row)
     pid = product["id"]
 
     attrs, images = await gather(
-        pool.fetch("SELECT attr_key, attr_value, unit FROM product_attributes WHERE product_id = $1", pid),
-        pool.fetch("SELECT id, url, alt_text, is_primary, sort_order FROM product_images WHERE product_id = $1 ORDER BY sort_order", pid),
+        pool.fetch(
+            "SELECT attr_key, attr_value, unit FROM product_attributes WHERE product_id = $1",
+            pid,
+        ),
+        pool.fetch(
+            "SELECT id, url, alt_text, is_primary, sort_order FROM product_images WHERE product_id = $1 ORDER BY sort_order",
+            pid,
+        ),
     )
 
     product["attributes"] = [dict(a) for a in attrs]
-    product["images"]     = [dict(i) for i in images]
+    product["images"] = [dict(i) for i in images]
     return {"data": product}
 
 
@@ -165,16 +215,39 @@ async def get_product(sku: str, pool: asyncpg.Pool = Depends(get_pool)):
         400: {
             "description": "Ошибка валидации данных",
             "model": ValidationErrorResponse,
-            "content": {"application/json": {"example": {"error": "validation_error", "details": [{"field": "price", "message": "Цена должна быть > 0"}]}}},
+            "content": {
+                "application/json": {
+                    "example": {
+                        "error": "validation_error",
+                        "details": [
+                            {"field": "price", "message": "Цена должна быть > 0"}
+                        ],
+                    }
+                }
+            },
         },
         401: {
             "description": "Требуется авторизация администратора",
-            "content": {"application/json": {"example": {"error": "unauthorized", "message": "Для выполнения операции требуется JWT-токен администратора"}}},
+            "content": {
+                "application/json": {
+                    "example": {
+                        "error": "unauthorized",
+                        "message": "Для выполнения операции требуется JWT-токен администратора",
+                    }
+                }
+            },
         },
         409: {
             "description": "Товар с таким SKU уже существует",
             "model": ErrorResponse,
-            "content": {"application/json": {"example": {"error": "sku_already_exists", "message": "Товар с таким SKU уже существует"}}},
+            "content": {
+                "application/json": {
+                    "example": {
+                        "error": "sku_already_exists",
+                        "message": "Товар с таким SKU уже существует",
+                    }
+                }
+            },
         },
     },
 )
@@ -187,13 +260,32 @@ async def create_product(body: ProductCreate, pool: asyncpg.Pool = Depends(get_p
             VALUES ($1, $2, $3, $4, $5, $6, $7)
             RETURNING id, sku, status, created_at
             """,
-            body.sku, body.category_id, body.name, body.description,
-            body.price, body.old_price, body.stock_quantity,
+            body.sku,
+            body.category_id,
+            body.name,
+            body.description,
+            body.price,
+            body.old_price,
+            body.stock_quantity,
         )
     except asyncpg.UniqueViolationError:
-        raise HTTPException(status_code=409, detail={"error": ErrorCode.SKU_ALREADY_EXISTS, "message": "Товар с таким SKU уже существует"})
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error": ErrorCode.SKU_ALREADY_EXISTS,
+                "message": "Товар с таким SKU уже существует",
+            },
+        )
     except asyncpg.ForeignKeyViolationError:
-        raise HTTPException(status_code=400, detail={"error": "validation_error", "details": [{"field": "category_id", "message": "Категория не найдена"}]})
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "validation_error",
+                "details": [
+                    {"field": "category_id", "message": "Категория не найдена"}
+                ],
+            },
+        )
 
     return {"data": record_to_dict(row), "message": "Товар успешно создан"}
 
@@ -211,20 +303,43 @@ async def create_product(body: ProductCreate, pool: asyncpg.Pool = Depends(get_p
         400: {
             "description": "Нет полей для обновления",
             "model": ErrorResponse,
-            "content": {"application/json": {"example": {"error": "validation_error", "message": "Нет полей для обновления"}}},
+            "content": {
+                "application/json": {
+                    "example": {
+                        "error": "validation_error",
+                        "message": "Нет полей для обновления",
+                    }
+                }
+            },
         },
         401: {
             "description": "Требуется авторизация",
-            "content": {"application/json": {"example": {"error": "unauthorized", "message": "Для выполнения операции требуется JWT-токен администратора"}}},
+            "content": {
+                "application/json": {
+                    "example": {
+                        "error": "unauthorized",
+                        "message": "Для выполнения операции требуется JWT-токен администратора",
+                    }
+                }
+            },
         },
         404: {
             "description": "Товар не найден",
             "model": ErrorResponse,
-            "content": {"application/json": {"example": {"error": "product_not_found", "message": "Товар с указанным SKU не найден"}}},
+            "content": {
+                "application/json": {
+                    "example": {
+                        "error": "product_not_found",
+                        "message": "Товар с указанным SKU не найден",
+                    }
+                }
+            },
         },
     },
 )
-async def update_product(sku: str, body: ProductUpdate, pool: asyncpg.Pool = Depends(get_pool)):
+async def update_product(
+    sku: str, body: ProductUpdate, pool: asyncpg.Pool = Depends(get_pool)
+):
     data = body.model_dump(exclude_none=True)
     if "status" in data and isinstance(data["status"], ProductStatus):
         data["status"] = data["status"].value
@@ -238,7 +353,13 @@ async def update_product(sku: str, body: ProductUpdate, pool: asyncpg.Pool = Dep
             updates.append(f"{field} = ${len(params)}")
 
     if not updates:
-        raise HTTPException(status_code=400, detail={"error": ErrorCode.VALIDATION_ERROR, "message": "Нет полей для обновления"})
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": ErrorCode.VALIDATION_ERROR,
+                "message": "Нет полей для обновления",
+            },
+        )
 
     params.append(sku)
     try:
@@ -252,10 +373,24 @@ async def update_product(sku: str, body: ProductUpdate, pool: asyncpg.Pool = Dep
             *params,
         )
     except asyncpg.ForeignKeyViolationError:
-        raise HTTPException(status_code=400, detail={"error": "validation_error", "details": [{"field": "category_id", "message": "Категория не найдена"}]})
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "validation_error",
+                "details": [
+                    {"field": "category_id", "message": "Категория не найдена"}
+                ],
+            },
+        )
 
     if not row:
-        raise HTTPException(status_code=404, detail={"error": ErrorCode.PRODUCT_NOT_FOUND, "message": "Товар с указанным SKU не найден"})
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": ErrorCode.PRODUCT_NOT_FOUND,
+                "message": "Товар с указанным SKU не найден",
+            },
+        )
 
     return {"data": record_to_dict(row), "message": "Товар успешно обновлён"}
 
@@ -273,12 +408,26 @@ async def update_product(sku: str, body: ProductUpdate, pool: asyncpg.Pool = Dep
         204: {"description": "Товар архивирован"},
         401: {
             "description": "Требуется авторизация",
-            "content": {"application/json": {"example": {"error": "unauthorized", "message": "Для выполнения операции требуется JWT-токен администратора"}}},
+            "content": {
+                "application/json": {
+                    "example": {
+                        "error": "unauthorized",
+                        "message": "Для выполнения операции требуется JWT-токен администратора",
+                    }
+                }
+            },
         },
         404: {
             "description": "Товар с таким SKU не найден",
             "model": ErrorResponse,
-            "content": {"application/json": {"example": {"error": "product_not_found", "message": "Товар с указанным SKU не найден"}}},
+            "content": {
+                "application/json": {
+                    "example": {
+                        "error": "product_not_found",
+                        "message": "Товар с указанным SKU не найден",
+                    }
+                }
+            },
         },
     },
 )
@@ -288,4 +437,10 @@ async def delete_product(sku: str, pool: asyncpg.Pool = Depends(get_pool)):
         sku,
     )
     if result == "UPDATE 0":
-        raise HTTPException(status_code=404, detail={"error": ErrorCode.PRODUCT_NOT_FOUND, "message": "Товар с указанным SKU не найден"})
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": ErrorCode.PRODUCT_NOT_FOUND,
+                "message": "Товар с указанным SKU не найден",
+            },
+        )
