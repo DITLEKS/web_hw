@@ -1,39 +1,72 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-from fastapi.openapi.utils import get_openapi
 
 from app.database import create_pool
-from app.routers import categories, products
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Пул соединений создаём один раз при старте
     app.state.pool = await create_pool()
     yield
     await app.state.pool.close()
 
 
+tags_metadata = [
+    {
+        "name": "Категории",
+        "description": (
+            "Справочник категорий товаров. "
+            "Используйте `slug` категории как значение параметра `category` "
+            "при запросе каталога товаров."
+        ),
+    },
+    {
+        "name": "Товары",
+        "description": (
+            "Управление каталогом товаров: просмотр, создание, редактирование и архивация. "
+            "Удаление реализовано как **soft delete** — товар получает статус `archived` "
+            "и перестаёт отображаться в публичном каталоге без физического удаления из БД.\n\n"
+            "**Статусы товара:**\n"
+            "- `active` — доступен для покупки\n"
+            "- `out_of_stock` — нет в наличии\n"
+            "- `archived` — скрыт из каталога"
+        ),
+    },
+    {
+        "name": "Служебные",
+        "description": "Health check и проверка доступности сервиса.",
+    },
+]
+
 app = FastAPI(
-    title="SmartLight — Catalog Service",
+    title="SmartLight — Сервис управления товарами",
     description=(
-        "## Микросервис управления товарами\n\n"
-        "Отвечает за каталог товаров, категории, атрибуты и изображения.\n\n"
+        "## Микросервис каталога товаров\n\n"
+        "Предоставляет API для управления ассортиментом интернет-магазина умных светильников SmartLight.\n\n"
         "### Базовый URL\n"
         "- Docker: `http://catalog-service:3001`\n"
         "- Локально: `http://localhost:3001`\n\n"
         "### Аутентификация\n"
-        "Пока не требуется — авторизация будет добавлена в модуле 5.\n\n"
-        "### SKU-формат\n"
-        "Артикул товара строится по схеме `LX-{ТИП}-{ЦОКОЛЬ}-{МОЩНОСТЬ}`, "
-        "например `LX-LED-E27-9W`."
+        "Методы чтения (`GET`) публичны. "
+        "Методы записи (`POST`, `PATCH`, `DELETE`) требуют JWT-токена администратора "
+        "(авторизация добавляется в модуле 5).\n\n"
+        "### Формат ошибок\n"
+        "```json\n"
+        "{\n"
+        "  \"error\": \"машиночитаемый_код\",\n"
+        "  \"message\": \"Человекочитаемое описание ошибки\"\n"
+        "}\n"
+        "```"
     ),
     version="1.0.0",
     lifespan=lifespan,
+    openapi_tags=tags_metadata,
     contact={"name": "SmartLight Dev Team"},
     license_info={"name": "Proprietary"},
 )
+
+from app.routers import categories, products  # noqa: E402
 
 app.include_router(categories.router, prefix="/api/v1/categories", tags=["Категории"])
 app.include_router(products.router,   prefix="/api/v1/products",   tags=["Товары"])
@@ -41,5 +74,5 @@ app.include_router(products.router,   prefix="/api/v1/products",   tags=["Тов
 
 @app.get("/health", tags=["Служебные"], summary="Проверка работоспособности сервиса")
 async def health():
-    """Возвращает статус сервиса. Используется Docker healthcheck и мониторингом."""
+    """Возвращает статус `ok` если сервис запущен. Используется Docker healthcheck."""
     return {"status": "ok", "service": "catalog-service"}

@@ -1,25 +1,16 @@
 import asyncpg
 import httpx
 from fastapi import Request
-from pydantic_settings import BaseSettings
 
-
-class Settings(BaseSettings):
-    database_url: str = "postgresql://postgres:postgres@localhost:5434/orders_db"
-    catalog_service_url: str = "http://localhost:3001"
-    port: int = 3002
-
-    model_config = {"env_file": ".env"}
-
-
-settings = Settings()
+from app.core.config import settings
 
 
 async def create_pool() -> asyncpg.Pool:
     return await asyncpg.create_pool(
         dsn=settings.database_url,
-        min_size=2,
-        max_size=10,
+        min_size=settings.pool_min_size,
+        max_size=settings.pool_max_size,
+        command_timeout=settings.command_timeout,
     )
 
 
@@ -30,7 +21,6 @@ def create_http_client() -> httpx.AsyncClient:
     )
 
 
-# Достаём ресурсы из app.state — они создаются один раз при старте
 def get_pool(request: Request) -> asyncpg.Pool:
     return request.app.state.pool
 

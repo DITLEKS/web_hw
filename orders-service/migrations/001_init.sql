@@ -1,6 +1,4 @@
--- ============================================================
--- SmartLight — Orders Service DB schema
--- ============================================================
+-- DB схема
 
 CREATE TABLE IF NOT EXISTS customers (
   id             SERIAL PRIMARY KEY,
@@ -84,9 +82,7 @@ CREATE TABLE IF NOT EXISTS cart_items (
   UNIQUE (session_id, sku)
 );
 
--- ============================================================
--- Seed promo codes
--- ============================================================
+-- Промокоды
 
 INSERT INTO promo_codes (code, discount_type, discount_value, min_order_amount, max_uses, valid_from, valid_until, is_active) VALUES
   ('SALE20',  'percent', 20.00,  500.00,  NULL, '2026-01-01', '2026-12-31', TRUE),
@@ -94,17 +90,15 @@ INSERT INTO promo_codes (code, discount_type, discount_value, min_order_amount, 
   ('SMART15', 'percent', 15.00,  1000.00, NULL, '2026-01-01', '2026-06-30', TRUE)
 ON CONFLICT (code) DO NOTHING;
 
--- ============================================================
 -- Индексы
--- ============================================================
 
 -- Корзина всегда ищется по session_id
 CREATE INDEX IF NOT EXISTS idx_cart_items_session_id ON cart_items(session_id);
 
--- История заказов — сортировка по дате, поиск по статусу
+-- История заказов, сортировка по дате, поиск по статусу
 CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_orders_status     ON orders(status);
 
--- Позиции и история — всегда по order_id
+-- Позиции и история, всегда по order_id
 CREATE INDEX IF NOT EXISTS idx_order_items_order_id          ON order_items(order_id);
 CREATE INDEX IF NOT EXISTS idx_order_status_history_order_id ON order_status_history(order_id);

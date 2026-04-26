@@ -1,28 +1,17 @@
 import asyncpg
 from fastapi import Request
-from pydantic_settings import BaseSettings
 
-
-class Settings(BaseSettings):
-    database_url: str = "postgresql://postgres:postgres@localhost:5433/catalog_db"
-    port: int = 3001
-
-    model_config = {"env_file": ".env"}
-
-
-settings = Settings()
+from app.core.config import settings
 
 
 async def create_pool() -> asyncpg.Pool:
     return await asyncpg.create_pool(
         dsn=settings.database_url,
-        min_size=2,
-        max_size=10,
+        min_size=settings.pool_min_size,
+        max_size=settings.pool_max_size,
+        command_timeout=settings.command_timeout,
     )
 
 
-# Зависимость FastAPI — достаём пул из состояния приложения.
-# Такой подход безопаснее глобальных переменных: пул явно
-# привязан к жизненному циклу конкретного экземпляра приложения.
 def get_pool(request: Request) -> asyncpg.Pool:
     return request.app.state.pool

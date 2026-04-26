@@ -1,186 +1,99 @@
-"""
-Pydantic-схемы для catalog-service.
-
-Все поля задокументированы по описаниям из ТЗ — они отображаются
-в Swagger UI как description, а examples попадают прямо в форму.
-"""
 from __future__ import annotations
 
 from decimal import Decimal
 from typing import Optional
 
-# Категории
-    id: int = Field(..., description="Уникальный идентификатор категории (автоинкремент)", example=1)
-    slug: str = Field(
-        ...,
-        description="URL-идентификатор категории (уникальный)",
-        example="led",
-    )
-    name: str = Field(..., description="Название категории", example="LED")
-    color_hex: str = Field(
-        ...,
-        description="HEX-код цвета для отображения в UI",
-        example="#3B82F6",
-    )
-    sort_order: int = Field(
-        ...,
-        description="Порядок сортировки категорий в меню (0 — первая)",
-        example=0,
-    )
+from pydantic import BaseModel, Field, field_validator
 
-    model_config = {"from_attributes": True}
+from app.enums import ProductStatus
 
 
-# Атрибуты и изображения
-    attr_key: str = Field(
-        ...,
-        description="Ключ атрибута товара",
-        example="wattage",
-    )
-    attr_value: str = Field(
-        ...,
-        description="Значение атрибута",
-        example="9",
-    )
-    unit: Optional[str] = Field(
-        None,
-        description="Единица измерения: Вт, лм, K, ч, мес или null",
-        example="Вт",
-    )
+class CategoryOut(BaseModel):
+    id:         int    = Field(..., description="Идентификатор категории", example=1)
+    slug:       str    = Field(..., description="URL-slug категории",      example="led")
+    name:       str    = Field(..., description="Название категории",      example="LED")
+    color_hex:  str    = Field(..., description="HEX-цвет категории для отображения в UI", example="#3B82F6")
+    sort_order: int    = Field(..., description="Порядок сортировки (меньше — выше)", example=0)
+
+
+class CategoryListResponse(BaseModel):
+    data: list[CategoryOut]
+
+
+class ProductListItem(BaseModel):
+    id:            int            = Field(..., description="Внутренний идентификатор товара", example=1)
+    sku:           str            = Field(..., description="Артикул товара. Формат: LX-ТИП-ЦОКОЛЬ-МОЩНОСТЬ", example="LX-LED-E27-9W")
+    category:      CategoryOut    = Field(..., description="Категория товара")
+    name:          str            = Field(..., description="Название товара", example="Лампа светодиодная груша 9 Вт E27")
+    price:         str            = Field(..., description="Текущая цена в рублях", example="89.00")
+    old_price:     Optional[str]  = Field(None, description="Старая цена (отображается как зачёркнутая). null если скидки нет", example="120.00")
+    stock_quantity: int           = Field(..., description="Остаток на складе в штуках", example=150)
+    status:        ProductStatus  = Field(..., description="Статус товара: active / archived / out_of_stock", example=ProductStatus.active)
+    primary_image: Optional[str]  = Field(None, description="URL главного изображения товара. null если изображений нет")
+
+
+class ProductListMeta(BaseModel):
+    page:        int = Field(..., description="Текущая страница", example=1)
+    limit:       int = Field(..., description="Количество товаров на странице", example=12)
+    total:       int = Field(..., description="Общее количество товаров по фильтру", example=42)
+    total_pages: int = Field(..., description="Общее количество страниц", example=4)
+
+
+class ProductListResponse(BaseModel):
+    data: list[ProductListItem]
+    meta: ProductListMeta
+
+
+class ProductAttributeOut(BaseModel):
+    attr_key:   str           = Field(..., description="Ключ характеристики", example="Мощность")
+    attr_value: str           = Field(..., description="Значение характеристики", example="9")
+    unit:       Optional[str] = Field(None, description="Единица измерения", example="Вт")
 
 
 class ProductImageOut(BaseModel):
-    id: int = Field(..., description="Уникальный идентификатор изображения", example=1)
-    url: str = Field(
-        ...,
-        description="URL изображения на CDN",
-        example="https://cdn.smartlight.ru/products/lx-led-e27-9w.jpg",
-    )
-    alt_text: Optional[str] = Field(
-        None,
-        description="Альтернативный текст для accessibility",
-        example="Лампа LED E27 9Вт",
-    )
-    is_primary: bool = Field(
-        ...,
-        description="Флаг основного изображения — отображается первым в карточке",
-        example=True,
-    )
-    sort_order: int = Field(
-        ...,
-        description="Порядок сортировки изображений (0 — первое)",
-        example=0,
-    )
+    id:         int           = Field(..., description="Идентификатор изображения", example=1)
+    url:        str           = Field(..., description="URL изображения", example="https://cdn.smartlight.ru/images/lx-led-e27-9w-1.jpg")
+    alt_text:   Optional[str] = Field(None, description="Альтернативный текст для SEO и доступности", example="Лампа LED E27 9Вт вид спереди")
+    is_primary: bool          = Field(..., description="Главное изображение (отображается первым)", example=True)
+    sort_order: int           = Field(..., description="Порядок сортировки изображений", example=0)
 
 
-# Товары — список
-    id: int = Field(..., description="Уникальный идентификатор товара", example=1)
-    sku: str = Field(
-        ...,
-        description="Артикул товара (уникальный). Формат: LX-{категория}-{цоколь}-{мощность}",
-        example="LX-LED-E27-9W",
-    )
-    category: CategoryBriefOut = Field(..., description="Категория товара")
-    name: str = Field(
-        ...,
-        description="Полное название товара",
-        example="Лампа светодиодная груша 9 Вт E27",
-    )
-    price: str = Field(
-        ...,
-        description="Текущая цена товара в рублях",
-        example="89.00",
-    )
-    old_price: Optional[str] = Field(
-        None,
-        description="Старая цена до скидки в рублях (null — скидки нет)",
-        example="99.00",
-    )
-    stock_quantity: int = Field(
-        ...,
-        description="Количество единиц товара на складе",
-        example=150,
-    )
-    status: str = Field(
-        ...,
-        description="Статус товара: active — активен, archived — архивирован, out_of_stock — нет в наличии",
-        example="active",
-    )
-    primary_image: Optional[str] = Field(
-        None,
-        description="URL основного изображения товара (null — изображений нет)",
-        example="https://cdn.smartlight.ru/products/lx-led-e27-9w.jpg",
-    )
+class ProductDetail(BaseModel):
+    id:             int                      = Field(..., example=1)
+    sku:            str                      = Field(..., example="LX-LED-E27-9W")
+    category:       CategoryOut
+    name:           str                      = Field(..., example="Лампа светодиодная груша 9 Вт E27")
+    description:    Optional[str]            = Field(None, description="Подробное описание товара")
+    price:          str                      = Field(..., example="89.00")
+    old_price:      Optional[str]            = Field(None, example="120.00")
+    stock_quantity: int                      = Field(..., example=150)
+    status:         ProductStatus            = Field(..., example=ProductStatus.active)
+    attributes:     list[ProductAttributeOut] = Field(..., description="Характеристики товара (мощность, цоколь, цветовая температура и т.д.)")
+    images:         list[ProductImageOut]    = Field(..., description="Изображения товара (отсортированы по sort_order)")
+    created_at:     str                      = Field(..., example="2026-01-15T10:00:00+00:00")
+    updated_at:     str                      = Field(..., example="2026-04-12T15:30:00+00:00")
 
 
-class PaginationMeta(BaseModel):
-    page: int = Field(..., description="Текущая страница", example=1)
-    limit: int = Field(..., description="Количество записей на странице", example=12)
-    total: int = Field(..., description="Общее количество товаров по фильтру", example=20)
-    total_pages: int = Field(..., description="Всего страниц", example=2)
+class ProductDetailResponse(BaseModel):
+    data: ProductDetail
 
 
-# Товар — карточка
-    description: Optional[str] = Field(
-        None,
-        description="Подробное описание товара",
-        example="Энергосберегающая LED лампа с цоколем E27. Мощность 9 Вт заменяет лампу накаливания 75 Вт.",
-    )
-    created_at: str = Field(..., description="Дата и время создания товара (ISO 8601)", example="2026-01-15T10:00:00+00:00")
-    updated_at: str = Field(..., description="Дата и время последнего обновления (ISO 8601)", example="2026-04-12T15:35:00+00:00")
-    attributes: list[ProductAttributeOut] = Field(
-        default_factory=list,
-        description="Технические характеристики товара",
-    )
-    images: list[ProductImageOut] = Field(
-        default_factory=list,
-        description="Изображения товара, отсортированные по sort_order",
-    )
+class ProductCreate(BaseModel):
+    sku:            str            = Field(..., description="Уникальный артикул. Формат: LX-ТИП-ЦОКОЛЬ-МОЩНОСТЬ", example="LX-LED-E27-9W", max_length=50)
+    category_id:    int            = Field(..., description="ID категории из /api/v1/categories", example=1)
+    name:           str            = Field(..., description="Название товара", example="Лампа светодиодная груша 9 Вт E27", max_length=255)
+    description:    Optional[str]  = Field(None, description="Подробное описание товара")
+    price:          Decimal        = Field(..., description="Цена в рублях (копейки через точку)", example=89.00, gt=0)
+    old_price:      Optional[Decimal] = Field(None, description="Старая цена до скидки. Если передана — должна быть больше price", example=120.00, gt=0)
+    stock_quantity: int            = Field(0, description="Начальный остаток на складе", example=100, ge=0)
 
-
-# Запросы на создание / обновление
-    sku: str = Field(
-        ...,
-        description="Артикул товара. Должен быть уникальным. Формат: LX-{тип}-{цоколь}-{мощность}",
-        example="LX-LED-E27-9W",
-        min_length=3,
-        max_length=50,
-    )
-    category_id: int = Field(
-        ...,
-        description="ID категории из таблицы categories",
-        example=1,
-        ge=1,
-    )
-    name: str = Field(
-        ...,
-        description="Полное название товара",
-        example="Лампа светодиодная груша 9 Вт E27",
-        min_length=2,
-        max_length=255,
-    )
-    description: Optional[str] = Field(
-        None,
-        description="Подробное описание товара (необязательно)",
-        example="Энергосберегающая LED лампа с цоколем E27.",
-    )
-    price: Decimal = Field(
-        ...,
-        description="Цена товара в рублях. Должна быть больше 0",
-        example=89.00,
-        gt=0,
-    )
-    old_price: Optional[Decimal] = Field(
-        None,
-        description="Старая цена до скидки. Передайте null если скидки нет",
-        example=99.00,
-    )
-    stock_quantity: int = Field(
-        0,
-        description="Количество товара на складе. По умолчанию 0",
-        example=150,
-        ge=0,
-    )
+    @field_validator("sku")
+    @classmethod
+    def validate_sku_format(cls, v: str) -> str:
+        parts = v.split("-")
+        if len(parts) < 3 or not v.startswith("LX-"):
+            raise ValueError("SKU должен иметь формат LX-ТИП-ЦОКОЛЬ[-МОЩНОСТЬ], например: LX-LED-E27-9W")
+        return v.upper()
 
     model_config = {
         "json_schema_extra": {
@@ -188,93 +101,70 @@ class PaginationMeta(BaseModel):
                 "sku": "LX-LED-E27-9W",
                 "category_id": 1,
                 "name": "Лампа светодиодная груша 9 Вт E27",
-                "description": "Энергосберегающая LED лампа с цоколем E27.",
+                "description": "Энергоэффективная LED-лампа с цоколем E27, мощностью 9 Вт.",
                 "price": 89.00,
-                "old_price": None,
-                "stock_quantity": 150,
+                "old_price": 120.00,
+                "stock_quantity": 100,
             }
         }
     }
 
 
+class ProductCreatedData(BaseModel):
+    id:         int           = Field(..., example=42)
+    sku:        str           = Field(..., example="LX-LED-E27-9W")
+    status:     ProductStatus = Field(..., example=ProductStatus.active)
+    created_at: str           = Field(..., example="2026-04-12T15:00:00+00:00")
+
+
+class ProductCreatedResponse(BaseModel):
+    data:    ProductCreatedData
+    message: str = Field(..., example="Товар успешно создан")
+
+
 class ProductUpdate(BaseModel):
-    name: Optional[str] = Field(
-        None,
-        description="Новое название товара",
-        example="Лампа светодиодная груша 9 Вт E27 (обновлённая)",
-        min_length=2,
-        max_length=255,
-    )
-    description: Optional[str] = Field(
-        None,
-        description="Новое описание товара",
-        example="Обновлённое описание.",
-    )
-    price: Optional[Decimal] = Field(
-        None,
-        description="Новая цена. Должна быть больше 0",
-        example=99.00,
-        gt=0,
-    )
-    old_price: Optional[Decimal] = Field(
-        None,
-        description="Старая цена (для отображения зачёркнутой цены). Передайте null чтобы убрать",
-        example=89.00,
-    )
-    stock_quantity: Optional[int] = Field(
-        None,
-        description="Новый остаток на складе",
-        example=200,
-        ge=0,
-    )
-    status: Optional[str] = Field(
-        None,
-        description="Новый статус товара: active — активен, archived — архивирован, out_of_stock — нет в наличии",
-        example="active",
-    )
-    category_id: Optional[int] = Field(
-        None,
-        description="ID новой категории",
-        example=2,
-        ge=1,
-    )
+    name:           Optional[str]           = Field(None, description="Новое название товара", example="Лампа LED E27 9Вт обновлённая")
+    description:    Optional[str]           = Field(None, description="Новое описание")
+    price:          Optional[Decimal]       = Field(None, description="Новая цена в рублях", example=79.00, gt=0)
+    old_price:      Optional[Decimal]       = Field(None, description="Новая старая цена (зачёркнутая). Передайте null чтобы убрать", example=89.00)
+    stock_quantity: Optional[int]           = Field(None, description="Новый остаток на складе", example=200, ge=0)
+    status:         Optional[ProductStatus] = Field(None, description="Новый статус: active / archived / out_of_stock", example=ProductStatus.active)
+    category_id:    Optional[int]           = Field(None, description="Новая категория (ID из /api/v1/categories)", example=2)
 
     model_config = {
         "json_schema_extra": {
             "example": {
-                "price": 99.00,
+                "price": 79.00,
                 "stock_quantity": 200,
+                "status": "active",
             }
-# Ответы на создание
-    id: int = Field(..., description="ID созданного товара", example=21)
-    sku: str = Field(..., description="Артикул созданного товара", example="LX-LED-E27-9W")
-    status: str = Field(..., description="Начальный статус", example="active")
-    created_at: str = Field(..., example="2026-04-12T15:30:00+00:00")
-
-
-class ProductCreatedResponse(BaseModel):
-    data: ProductCreatedData
-    message: str = Field(..., example="Товар успешно создан")
+        }
+    }
 
 
 class ProductUpdatedData(BaseModel):
-    sku: str = Field(..., example="LX-LED-E27-9W")
-    price: str = Field(..., example="99.00")
-    stock_quantity: int = Field(..., example=200)
-    status: str = Field(..., example="active")
-    updated_at: str = Field(..., example="2026-04-12T15:35:00+00:00")
+    sku:            str           = Field(..., example="LX-LED-E27-9W")
+    price:          str           = Field(..., example="79.00")
+    stock_quantity: int           = Field(..., example=200)
+    status:         ProductStatus = Field(..., example=ProductStatus.active)
+    updated_at:     str           = Field(..., example="2026-04-13T10:00:00+00:00")
 
 
-# Ошибки
-    error: str = Field(..., description="Машиночитаемый код ошибки", example="product_not_found")
-    message: Optional[str] = Field(None, description="Человекочитаемое описание ошибки", example="Товар с указанным SKU не найден")
+class ProductUpdatedResponse(BaseModel):
+    data:    ProductUpdatedData
+    message: str = Field(..., example="Товар успешно обновлён")
 
 
 class ValidationDetail(BaseModel):
-    field: str = Field(..., example="price")
-    message: str = Field(..., example="Цена должна быть > 0")
+    field:   str = Field(..., example="price")
+    message: str = Field(..., example="Цена должна быть больше 0")
 
 
 class ValidationErrorResponse(BaseModel):
-    error: str = Field("validation_error", example="validation_error")
+    error:   str                  = Field(..., example="validation_error")
     details: list[ValidationDetail]
+
+
+class ErrorResponse(BaseModel):
+    error:   str = Field(..., description="Машиночитаемый код ошибки", example="product_not_found")
+    message: str = Field(..., description="Человекочитаемое описание ошибки", example="Товар с указанным SKU не найден")

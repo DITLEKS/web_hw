@@ -1,6 +1,4 @@
--- ============================================================
--- SmartLight — Catalog Service DB schema
--- ============================================================
+-- DB схема
 
 CREATE TABLE IF NOT EXISTS categories (
   id         SERIAL PRIMARY KEY,
@@ -112,11 +110,9 @@ BEGIN
   END IF;
 END $$;
 
--- ============================================================
 -- Индексы
--- ============================================================
 
--- Основной поиск товаров — по категории и статусу
+-- Основной поиск товаров по категории и статусу
 CREATE INDEX IF NOT EXISTS idx_products_category_id ON products(category_id);
 CREATE INDEX IF NOT EXISTS idx_products_status       ON products(status);
 

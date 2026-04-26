@@ -1,0 +1,15 @@
+from pydantic_settings import BaseSettings
+
+
+class Settings(BaseSettings):
+    database_url: str = "postgresql://postgres:postgres@localhost:5434/orders_db"
+    catalog_service_url: str = "http://localhost:3001"
+    port: int = 3002
+    pool_min_size: int = 2
+    pool_max_size: int = 10
+    command_timeout: int = 30
+
+    model_config = {"env_file": ".env"}
+
+
+settings = Settings()
