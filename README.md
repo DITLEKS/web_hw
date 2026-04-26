@@ -74,9 +74,9 @@ uvicorn app.main:app --port 3002 --reload
 ```
 smartlight/
 ├── docker-compose.yml
-├── shared/                         # ← НОВОЕ: общие утилиты
+├── shared/                         
 │   ├── __init__.py
-│   └── utils.py                    # record_to_dict, new_session_id
+│   └── utils.py                    
 │
 ├── catalog-service/
 │   ├── Dockerfile
@@ -84,17 +84,17 @@ smartlight/
 │   ├── migrations/
 │   │   └── 001_init.sql
 │   └── app/
-│       ├── main.py                 # FastAPI, lifespan, openapi_tags
-│       ├── database.py             # asyncpg pool (импортирует из core/config)
-│       ├── enums.py                # ← НОВОЕ: ProductStatus(str, Enum)
-│       ├── schemas.py              # ← НОВОЕ: Pydantic-модели с описаниями
-│       ├── constants.py            # ← НОВОЕ: ErrorCode
-│       ├── core/                   # ← НОВОЕ
-│       │   └── config.py           # pydantic-settings (Settings)
+│       ├── main.py                 
+│       ├── database.py             
+│       ├── enums.py               
+│       ├── schemas.py              
+│       ├── constants.py           
+│       ├── core/                   
+│       │   └── config.py           
 │       └── routers/
 │           ├── __init__.py
-│           ├── categories.py       # GET /api/v1/categories
-│           └── products.py         # CRUD + DELETE /api/v1/products
+│           ├── categories.py       
+│           └── products.py       
 │
 └── orders-service/
     ├── Dockerfile
@@ -102,17 +102,17 @@ smartlight/
     ├── migrations/
     │   └── 001_init.sql
     └── app/
-        ├── main.py                 # FastAPI, lifespan, openapi_tags
-        ├── database.py             # asyncpg pool + httpx клиент
-        ├── enums.py                # ← НОВОЕ: OrderStatus, DeliveryType и др.
-        ├── schemas.py              # ← НОВОЕ: Pydantic-модели с описаниями
-        ├── constants.py            # ← НОВОЕ: ErrorCode, DELIVERY_COSTS
-        ├── core/                   # ← НОВОЕ
-        │   └── config.py           # pydantic-settings (Settings)
+        ├── main.py                 
+        ├── database.py            
+        ├── enums.py               
+        ├── schemas.py              
+        ├── constants.py           
+        ├── core/                   
+        │   └── config.py          
         └── routers/
             ├── __init__.py
-            ├── cart.py             # Корзина (X-Session-Id)
-            └── orders.py           # Заказы
+            ├── cart.py            
+            └── orders.py           
 ```
 
 ## API
