@@ -126,17 +126,3 @@ smartlight/
 | POST | `/api/v1/orders` | Оформить заказ |
 | GET | `/api/v1/orders` | История заказов (`?page=1&limit=10`) |
 | GET | `/api/v1/orders/{order_number}` | Детали заказа |
-
-**Пример тела `POST /api/v1/orders`:**
-```json
-{
-  "delivery_type": "courier",
-  "delivery_city": "Москва",
-  "delivery_street": "ул. Ленина, 1-42",
-  "delivery_zip": "101000",
-  "payment_method": "card_online",
-  "promo_code": "SALE20"
-}
-
-
-
