@@ -1,6 +1,6 @@
-# SmartLight — Backend Microservices (Python / FastAPI)
+# SmartLight (Python / FastAPI)
 
-Два микросервиса на **Python 3.12 + FastAPI + asyncpg + PostgreSQL**.
+Микросервисы реализованы на базе **Python 3.12 + FastAPI + asyncpg + PostgreSQL**.
 
 | Сервис | Порт | БД |
 |---|---|---|
@@ -100,7 +100,7 @@ smartlight/
 
 ---
 
-## API Reference
+## API
 
 ### Catalog Service (порт 3001)
 
@@ -126,38 +126,3 @@ smartlight/
 | POST | `/api/v1/orders` | Оформить заказ |
 | GET | `/api/v1/orders` | История заказов (`?page=1&limit=10`) |
 | GET | `/api/v1/orders/{order_number}` | Детали заказа |
-
-**Пример тела `POST /api/v1/orders`:**
-```json
-{
-  "delivery_type": "courier",
-  "delivery_city": "Москва",
-  "delivery_street": "ул. Ленина, 1-42",
-  "delivery_zip": "101000",
-  "payment_method": "card_online",
-  "promo_code": "SALE20"
-}
-```
-
-**Стоимость доставки:** `courier` — 300 ₽ · `cdek` — 250 ₽ · `pickup` — 0 ₽
-
-**Промокоды в БД:** `SALE20` (−20%) · `WELCOME` (−150 ₽) · `SMART15` (−15%, от 1000 ₽)
-
----
-
-## Postman
-
-Импортируйте `orders_manage_postman.json` и `products_manage_postman.json`.
-
-Для всех запросов корзины и заказов добавьте заголовок:
-```
-X-Session-Id: a1b2c3d4-e5f6-7890-abcd-ef1234567890
-```
-
-Типичный сценарий:
-1. `GET /api/v1/categories`
-2. `GET /api/v1/products?category=led`
-3. `POST /api/v1/cart/items` — `{ "sku": "LX-LED-E27-9W", "quantity": 2 }`
-4. `GET /api/v1/cart`
-5. `POST /api/v1/orders`
-6. `GET /api/v1/orders/{order_number}`
