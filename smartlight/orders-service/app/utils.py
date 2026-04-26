@@ -1,0 +1,21 @@
+import uuid
+from datetime import datetime
+from decimal import Decimal
+
+
+# Та же конвертация что и в catalog-service — asyncpg отдаёт
+# Decimal и datetime, которые нужно привести к строкам для JSON
+def record_to_dict(record) -> dict:
+    result = {}
+    for key, value in dict(record).items():
+        if isinstance(value, Decimal):
+            result[key] = str(value)
+        elif isinstance(value, datetime):
+            result[key] = value.isoformat()
+        else:
+            result[key] = value
+    return result
+
+
+def new_session_id() -> str:
+    return str(uuid.uuid4())
