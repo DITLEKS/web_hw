@@ -265,7 +265,7 @@ async def update_product(sku: str, body: ProductUpdate, pool: asyncpg.Pool = Dep
     status_code=204,
     summary="Удалить товар",
     description=(
-        "Soft delete — товар получает статус `archived` и перестаёт отображаться в публичном каталоге. "
+        "Soft delete - товар получает статус `archived` и перестаёт отображаться в публичном каталоге. "
         "Физически запись из БД не удаляется. "
         "**Доступно только для администраторов**."
     ),

@@ -20,7 +20,7 @@ router = APIRouter()
 
 
 def resolve_session(x_session_id: Optional[str]) -> tuple[str, bool]:
-    """Возвращает (session_id, is_new). Если заголовок не пришёл — генерирует новый UUID."""
+    """Возвращает (session_id, is_new). Если заголовок не пришёл, то генерирует новый UUID."""
     if x_session_id and len(x_session_id) >= 8:
         return x_session_id, False
     return new_session_id(), True
@@ -43,7 +43,7 @@ async def fetch_product(http: httpx.AsyncClient, sku: str) -> dict | None:
     description=(
         "Возвращает все позиции корзины текущей сессии, общую сумму и применённый промокод. "
         "Корзина идентифицируется по заголовку **`X-Session-Id`**. "
-        "Если заголовок не передан — создаётся новая сессия, "
+        "Если заголовок не передан, то создаётся новая сессия, "
         "её идентификатор возвращается в заголовке ответа `X-Session-Id`."
     ),
     responses={

@@ -47,17 +47,6 @@ app = FastAPI(
         "### Базовый URL\n"
         "- Docker: `http://catalog-service:3001`\n"
         "- Локально: `http://localhost:3001`\n\n"
-        "### Аутентификация\n"
-        "Методы чтения (`GET`) публичны. "
-        "Методы записи (`POST`, `PATCH`, `DELETE`) требуют JWT-токена администратора "
-        "(авторизация добавляется в модуле 5).\n\n"
-        "### Формат ошибок\n"
-        "```json\n"
-        "{\n"
-        "  \"error\": \"машиночитаемый_код\",\n"
-        "  \"message\": \"Человекочитаемое описание ошибки\"\n"
-        "}\n"
-        "```"
     ),
     version="1.0.0",
     lifespan=lifespan,
@@ -66,7 +55,7 @@ app = FastAPI(
     license_info={"name": "Proprietary"},
 )
 
-from app.routers import categories, products  # noqa: E402
+from app.routers import categories, products 
 
 app.include_router(categories.router, prefix="/api/v1/categories", tags=["Категории"])
 app.include_router(products.router,   prefix="/api/v1/products",   tags=["Товары"])

@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field, model_validator
 from app.enums import DeliveryType, OrderStatus, PaymentMethod, PaymentStatus
 
 
-# ─── Корзина ─────────────────────────────────────────────────────────────────
+# Корзина
 
 class CartItemOut(BaseModel):
     item_id:     int = Field(..., description="Идентификатор позиции в корзине", example=1)
@@ -70,7 +70,7 @@ class CartItemUpdatedResponse(BaseModel):
     message: str = Field(..., example="Количество обновлено")
 
 
-# ─── Заказы ──────────────────────────────────────────────────────────────────
+# Заказы
 
 class CreateOrderRequest(BaseModel):
     delivery_type:   DeliveryType   = Field(
