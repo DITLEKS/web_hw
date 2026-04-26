@@ -16,6 +16,7 @@ from app.schemas import (
 )
 from shared.utils import new_session_id, record_to_dict
 
+
 router = APIRouter()
 
 
@@ -56,14 +57,32 @@ async def fetch_product(http: httpx.AsyncClient, sku: str) -> dict | None:
                             "summary": "Корзина с товарами",
                             "value": {
                                 "data": {
-                                    "items": [{"item_id": 1, "sku": "LX-LED-E27-9W", "name": "Лампа LED E27 9Вт", "quantity": 2, "unit_price": "89.00", "total_price": "178.00"}],
-                                    "subtotal": "178.00", "discount_amount": "0.00", "promo": None,
+                                    "items": [
+                                        {
+                                            "item_id": 1,
+                                            "sku": "LX-LED-E27-9W",
+                                            "name": "Лампа LED E27 9Вт",
+                                            "quantity": 2,
+                                            "unit_price": "89.00",
+                                            "total_price": "178.00",
+                                        }
+                                    ],
+                                    "subtotal": "178.00",
+                                    "discount_amount": "0.00",
+                                    "promo": None,
                                 }
                             },
                         },
                         "пустая": {
                             "summary": "Пустая корзина",
-                            "value": {"data": {"items": [], "subtotal": "0.00", "discount_amount": "0.00", "promo": None}},
+                            "value": {
+                                "data": {
+                                    "items": [],
+                                    "subtotal": "0.00",
+                                    "discount_amount": "0.00",
+                                    "promo": None,
+                                }
+                            },
                         },
                     }
                 }
@@ -86,19 +105,23 @@ async def get_cart(
         response.headers["X-Session-Id"] = session_id
 
     rows = await pool.fetch(
-        "SELECT id AS item_id, sku, name, quantity, unit_price, total_price FROM cart_items WHERE session_id = $1 ORDER BY added_at",
+        "SELECT id AS item_id, sku, name, quantity, unit_price, total_price "
+        "FROM cart_items WHERE session_id = $1 ORDER BY added_at",
         session_id,
     )
 
-    items    = [record_to_dict(r) for r in rows]
-    subtotal = sum(Decimal(i["total_price"]) for i in items)
+    items = [record_to_dict(r) for r in rows]
+
+    # subtotal всегда считаем через Decimal и нормализуем до 2 знаков
+    subtotal = sum(Decimal(str(i["total_price"])) for i in items) if items else Decimal("0.00")
+    subtotal_str = str(subtotal.quantize(Decimal("0.01")))
 
     return {
         "data": {
-            "items":           items,
-            "subtotal":        str(subtotal.quantize(Decimal("0.01"))),
+            "items": items,
+            "subtotal": subtotal_str,
             "discount_amount": "0.00",
-            "promo":           None,
+            "promo": None,
         }
     }
 
@@ -120,7 +143,11 @@ async def get_cart(
             "model": ErrorResponse,
             "content": {
                 "application/json": {
-                    "example": {"error": "insufficient_stock", "message": "Доступно только 1 шт.", "available": 1}
+                    "example": {
+                        "error": "insufficient_stock",
+                        "message": "Доступно только 1 шт.",
+                        "available": 1,
+                    }
                 }
             },
         },
@@ -129,7 +156,10 @@ async def get_cart(
             "model": ErrorResponse,
             "content": {
                 "application/json": {
-                    "example": {"error": "product_not_found", "message": "Товар не найден в каталоге"}
+                    "example": {
+                        "error": "product_not_found",
+                        "message": "Товар не найден в каталоге",
+                    }
                 }
             },
         },
@@ -137,7 +167,10 @@ async def get_cart(
             "description": "Сервис каталога недоступен. Повторите попытку позже",
             "content": {
                 "application/json": {
-                    "example": {"error": "catalog_unavailable", "message": "Не удалось получить информацию о товаре. Повторите попытку позже."}
+                    "example": {
+                        "error": "catalog_unavailable",
+                        "message": "Не удалось получить информацию о товаре. Повторите попытку позже.",
+                    }
                 }
             },
         },
@@ -152,7 +185,7 @@ async def add_item(
         description="Идентификатор сессии. Если не передан — создаётся автоматически",
         example="a1b2c3d4-e5f6-7890-abcd-ef1234567890",
     ),
-    pool: asyncpg.Pool      = Depends(get_pool),
+    pool: asyncpg.Pool = Depends(get_pool),
     http: httpx.AsyncClient = Depends(get_http),
 ):
     session_id, is_new = resolve_session(x_session_id)
@@ -164,7 +197,10 @@ async def add_item(
     except httpx.RequestError:
         raise HTTPException(
             status_code=503,
-            detail={"error": "catalog_unavailable", "message": "Не удалось получить информацию о товаре. Повторите попытку позже."},
+            detail={
+                "error": "catalog_unavailable",
+                "message": "Не удалось получить информацию о товаре. Повторите попытку позже.",
+            },
         )
 
     if resp.status_code == 404:
@@ -175,17 +211,25 @@ async def add_item(
 
     product = resp.json()["data"]
 
-    existing    = await pool.fetchrow("SELECT quantity FROM cart_items WHERE session_id = $1 AND sku = $2", session_id, body.sku)
+    existing = await pool.fetchrow(
+        "SELECT quantity FROM cart_items WHERE session_id = $1 AND sku = $2",
+        session_id,
+        body.sku,
+    )
     current_qty = existing["quantity"] if existing else 0
-    new_qty     = current_qty + body.quantity
+    new_qty = current_qty + body.quantity
 
     if new_qty > product["stock_quantity"]:
         raise HTTPException(
             status_code=400,
-            detail={"error": "insufficient_stock", "message": f"Доступно только {product['stock_quantity']} шт.", "available": product["stock_quantity"]},
+            detail={
+                "error": "insufficient_stock",
+                "message": f"Доступно только {product['stock_quantity']} шт.",
+                "available": product["stock_quantity"],
+            },
         )
 
-    unit_price  = Decimal(str(product["price"]))
+    unit_price = Decimal(str(product["price"]))
     total_price = unit_price * new_qty
 
     row = await pool.fetchrow(
@@ -198,7 +242,12 @@ async def add_item(
               total_price = $6
         RETURNING id AS item_id, sku, quantity, total_price
         """,
-        session_id, body.sku, product["name"], unit_price, new_qty, total_price,
+        session_id,
+        body.sku,
+        product["name"],
+        unit_price,
+        new_qty,
+        total_price,
     )
 
     return {"data": record_to_dict(row), "message": "Добавлено в корзину"}
@@ -220,7 +269,11 @@ async def add_item(
             "model": ErrorResponse,
             "content": {
                 "application/json": {
-                    "example": {"error": "insufficient_stock", "message": "Доступно только 1 шт.", "available": 1}
+                    "example": {
+                        "error": "insufficient_stock",
+                        "message": "Доступно только 1 шт.",
+                        "available": 1,
+                    }
                 }
             },
         },
@@ -229,7 +282,10 @@ async def add_item(
             "model": ErrorResponse,
             "content": {
                 "application/json": {
-                    "example": {"error": "item_not_found", "message": "Позиция не найдена в корзине"}
+                    "example": {
+                        "error": "item_not_found",
+                        "message": "Позиция не найдена в корзине",
+                    }
                 }
             },
         },
@@ -244,14 +300,15 @@ async def update_item(
         description="Идентификатор сессии",
         example="a1b2c3d4-e5f6-7890-abcd-ef1234567890",
     ),
-    pool: asyncpg.Pool      = Depends(get_pool),
+    pool: asyncpg.Pool = Depends(get_pool),
     http: httpx.AsyncClient = Depends(get_http),
 ):
     session_id, _ = resolve_session(x_session_id)
 
     item = await pool.fetchrow(
         "SELECT sku, unit_price FROM cart_items WHERE id = $1 AND session_id = $2",
-        item_id, session_id,
+        item_id,
+        session_id,
     )
     if not item:
         raise HTTPException(
@@ -263,14 +320,24 @@ async def update_item(
     if product and body.quantity > product["stock_quantity"]:
         raise HTTPException(
             status_code=400,
-            detail={"error": "insufficient_stock", "message": f"Доступно только {product['stock_quantity']} шт.", "available": product["stock_quantity"]},
+            detail={
+                "error": "insufficient_stock",
+                "message": f"Доступно только {product['stock_quantity']} шт.",
+                "available": product["stock_quantity"],
+            },
         )
 
     total_price = Decimal(str(item["unit_price"])) * body.quantity
 
     row = await pool.fetchrow(
-        "UPDATE cart_items SET quantity = $1, total_price = $2 WHERE id = $3 AND session_id = $4 RETURNING id AS item_id, quantity, total_price",
-        body.quantity, total_price, item_id, session_id,
+        "UPDATE cart_items "
+        "SET quantity = $1, total_price = $2 "
+        "WHERE id = $3 AND session_id = $4 "
+        "RETURNING id AS item_id, quantity, total_price",
+        body.quantity,
+        total_price,
+        item_id,
+        session_id,
     )
 
     return {"data": record_to_dict(row), "message": "Количество обновлено"}
@@ -288,7 +355,10 @@ async def update_item(
             "model": ErrorResponse,
             "content": {
                 "application/json": {
-                    "example": {"error": "item_not_found", "message": "Позиция не найдена в корзине"}
+                    "example": {
+                        "error": "item_not_found",
+                        "message": "Позиция не найдена в корзине",
+                    }
                 }
             },
         },
@@ -305,7 +375,11 @@ async def delete_item(
     pool: asyncpg.Pool = Depends(get_pool),
 ):
     session_id, _ = resolve_session(x_session_id)
-    result = await pool.execute("DELETE FROM cart_items WHERE id = $1 AND session_id = $2", item_id, session_id)
+    result = await pool.execute(
+        "DELETE FROM cart_items WHERE id = $1 AND session_id = $2",
+        item_id,
+        session_id,
+    )
     if result == "DELETE 0":
         raise HTTPException(
             status_code=404,
