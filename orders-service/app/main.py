@@ -66,6 +66,17 @@ app = FastAPI(
     license_info={"name": "Proprietary"},
 )
 
+from fastapi.middleware.cors import CORSMiddleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
 app.include_router(cart.router,   prefix="/api/v1/cart",   tags=["Корзина"])
 app.include_router(orders.router, prefix="/api/v1/orders", tags=["Заказы"])
 
